@@ -5,37 +5,33 @@ use std::{
     task::Poll,
 };
 
-use futures::{future::BoxFuture, stream::FuturesUnordered, Future, Stream};
+use futures::{future::LocalBoxFuture, stream::FuturesUnordered, Future, Stream};
 
 use crate::Spawned;
 
 /// Represents a moro "async scope". See the [`async_scope`][crate::async_scope] macro for details.
-pub struct Scope<'scope, 'env: 'scope, R: Send + 'env> {
+pub struct Scope<'scope, 'env: 'scope, R: 'env> {
     /// Stores the set of futures that have been spawned.
     ///
     /// This is behind a mutex so that multiple concurrent actors can access it.
     /// A `RwLock` seems better, but `FuturesUnordered is not `Sync` in the case.
     /// But in fact it doesn't matter anyway, because all spawned futures execute
     /// CONCURRENTLY and hence there will be no contention.
-    futures: Mutex<Pin<Box<FuturesUnordered<BoxFuture<'scope, ()>>>>>,
-    enqueued: Mutex<Vec<BoxFuture<'scope, ()>>>,
+    futures: Mutex<Pin<Box<FuturesUnordered<LocalBoxFuture<'scope, ()>>>>>,
+    enqueued: Mutex<Vec<LocalBoxFuture<'scope, ()>>>,
     terminated: Mutex<Option<R>>,
     phantom: PhantomData<&'scope &'env ()>,
 }
 
-fn is_sync<T: Sync>(t: T) -> T {
-    t
-}
-
-impl<'scope, 'env, R: Send> Scope<'scope, 'env, R> {
+impl<'scope, 'env, R> Scope<'scope, 'env, R> {
     /// Create a scope.
     pub(crate) fn new() -> Arc<Self> {
-        Arc::new(is_sync(Self {
+        Arc::new(Self {
             futures: Mutex::new(Box::pin(FuturesUnordered::new())),
             enqueued: Default::default(),
             terminated: Default::default(),
             phantom: Default::default(),
-        }))
+        })
     }
 
     /// Polls the jobs that were spawned thus far. Returns:
@@ -112,7 +108,7 @@ impl<'scope, 'env, R: Send> Scope<'scope, 'env, R> {
     /// ```
     pub fn terminate<T>(&'scope self, value: R) -> impl Future<Output = T> + 'scope
     where
-        T: 'scope + Send,
+        T: 'scope,
     {
         let mut lock = self.terminated.lock().unwrap();
         if lock.is_none() {
@@ -129,10 +125,10 @@ impl<'scope, 'env, R: Send> Scope<'scope, 'env, R> {
     /// The scope will not terminate until this job completes or the scope is cancelled.
     pub fn spawn<T>(
         &'scope self,
-        future: impl Future<Output = T> + Send + 'scope,
-    ) -> Spawned<impl Future<Output = T> + Send>
+        future: impl Future<Output = T> + 'scope,
+    ) -> Spawned<impl Future<Output = T>>
     where
-        T: 'scope + Send,
+        T: 'scope,
     {
         // Use a channel to communicate result from the *actual* future
         // (which lives in the futures-unordered) and the caller.

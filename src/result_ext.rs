@@ -1,9 +1,9 @@
 use crate::Scope;
 
-#[async_trait::async_trait]
-pub trait UnwrapOrCancel: Send + Sized {
-    type Ok: Send;
-    type Err: Send;
+#[async_trait::async_trait(?Send)]
+pub trait UnwrapOrCancel: Sized {
+    type Ok;
+    type Err;
 
     async fn unwrap_or_cancel<'scope, 'env, T>(
         self,
@@ -14,12 +14,8 @@ pub trait UnwrapOrCancel: Send + Sized {
         Self: 'env;
 }
 
-#[async_trait::async_trait]
-impl<O, E> UnwrapOrCancel for Result<O, E>
-where
-    O: Send,
-    E: Send,
-{
+#[async_trait::async_trait(?Send)]
+impl<O, E> UnwrapOrCancel for Result<O, E> {
     type Ok = O;
     type Err = E;
 
@@ -28,7 +24,6 @@ where
         scope: &'scope Scope<'scope, 'env, Result<T, E>>,
     ) -> O
     where
-        T: Send,
         Self: 'env,
     {
         match self {

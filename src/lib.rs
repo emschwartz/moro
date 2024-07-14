@@ -144,17 +144,17 @@ macro_rules! async_scope {
     }};
 }
 
-use futures::future::BoxFuture;
+use futures::future::LocalBoxFuture;
 
 pub use self::scope::Scope;
 pub use self::scope_body::ScopeBody;
 pub use self::spawned::Spawned;
 
 /// Creates a new moro scope. Normally, you invoke this through `moro::async_scope!`.
-pub fn scope_fn<'env, R, B>(body: B) -> ScopeBody<'env, R, BoxFuture<'env, R>>
+pub fn scope_fn<'env, R, B>(body: B) -> ScopeBody<'env, R, LocalBoxFuture<'env, R>>
 where
     R: Send + 'env,
-    for<'scope> B: FnOnce(&'scope Scope<'scope, 'env, R>) -> BoxFuture<'scope, R>,
+    for<'scope> B: FnOnce(&'scope Scope<'scope, 'env, R>) -> LocalBoxFuture<'scope, R>,
 {
     let scope = Scope::new();
 
