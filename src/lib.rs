@@ -1,20 +1,19 @@
-#![feature(async_closure)]
-#![allow(async_fn_in_trait)]
+// #![allow(async_fn_in_trait)]
 
 #[macro_use]
 mod macros;
 
-mod async_iter;
+// mod async_iter;
 mod body;
 pub mod prelude;
 mod result_ext;
 mod scope;
 mod scope_body;
 mod spawned;
-mod stream;
+// mod stream;
 
-pub use async_iter::{AsyncIterator, IntoAsyncIter};
-pub use stream::Stream;
+// pub use async_iter::{AsyncIterator, IntoAsyncIter};
+// pub use stream::Stream;
 
 /// Creates an async scope within which you can spawn jobs.
 /// This works much like the stdlib's
