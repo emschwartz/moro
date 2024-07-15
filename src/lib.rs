@@ -1,9 +1,5 @@
 #![feature(async_closure)]
-#![feature(async_fn_traits)]
-#![feature(unboxed_closures)]
 #![allow(async_fn_in_trait)]
-
-use std::ops::AsyncFnOnce;
 
 #[macro_use]
 mod macros;
@@ -155,26 +151,6 @@ pub fn scope_fn<'env, R, B>(body: B) -> ScopeBody<'env, R, LocalBoxFuture<'env, 
 where
     R: Send + 'env,
     for<'scope> B: FnOnce(&'scope Scope<'scope, 'env, R>) -> LocalBoxFuture<'scope, R>,
-{
-    let scope = Scope::new();
-
-    // Unsafe: We are letting the body use the `Arc<Scope>` without reference
-    // counting. The reference is held by `Body` below. `Body` will not drop
-    // the `Arc` until the body_future is dropped, and the output `T` has to outlive
-    // `'env` so it can't reference `scope`, so this should be ok.
-    let scope_ref: *const Scope<'_, '_, R> = &*scope;
-    let body_future = body(unsafe { &*scope_ref });
-
-    ScopeBody::new(body::Body::new(body_future, scope))
-}
-
-/// Creates a new moro scope.
-pub fn scope<'env, R, B>(
-    body: B,
-) -> ScopeBody<'env, R, <B as AsyncFnOnce<(&'env scope::Scope<'env, 'env, R>,)>>::CallOnceFuture>
-where
-    R: Send + 'env,
-    for<'scope> B: async FnOnce(&'scope Scope<'scope, 'env, R>) -> R,
 {
     let scope = Scope::new();
 
