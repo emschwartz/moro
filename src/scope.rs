@@ -1,9 +1,4 @@
-use std::{
-    marker::PhantomData,
-    pin::Pin,
-    sync::{Arc, Mutex},
-    task::Poll,
-};
+use std::{marker::PhantomData, pin::Pin, rc::Rc, sync::Mutex, task::Poll};
 
 use futures::{future::LocalBoxFuture, stream::FuturesUnordered, Future, Stream};
 
@@ -25,8 +20,8 @@ pub struct Scope<'scope, 'env: 'scope, R: 'env> {
 
 impl<'scope, 'env, R> Scope<'scope, 'env, R> {
     /// Create a scope.
-    pub(crate) fn new() -> Arc<Self> {
-        Arc::new(Self {
+    pub(crate) fn new() -> Rc<Self> {
+        Rc::new(Self {
             futures: Mutex::new(Box::pin(FuturesUnordered::new())),
             enqueued: Default::default(),
             terminated: Default::default(),

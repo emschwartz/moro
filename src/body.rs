@@ -1,4 +1,4 @@
-use std::{pin::Pin, sync::Arc, task::Poll};
+use std::{pin::Pin, rc::Rc, task::Poll};
 
 use futures::Future;
 use pin_project::{pin_project, pinned_drop};
@@ -21,14 +21,14 @@ where
     #[pin]
     body_future: Option<F>,
     result: Option<R>,
-    scope: Arc<Scope<'scope, 'env, R>>,
+    scope: Rc<Scope<'scope, 'env, R>>,
 }
 
 impl<'scope, 'env, R, F> Body<'scope, 'env, R, F> {
     /// # Unsafe contract
     ///
     /// - `future` will be dropped BEFORE `scope`
-    pub(crate) fn new(future: F, scope: Arc<Scope<'scope, 'env, R>>) -> Self {
+    pub(crate) fn new(future: F, scope: Rc<Scope<'scope, 'env, R>>) -> Self {
         Self {
             body_future: Some(future),
             result: None,
