@@ -16,7 +16,6 @@ use crate::scope::Scope;
 #[pin_project(PinnedDrop)]
 pub(crate) struct Body<'scope, 'env: 'scope, R, F>
 where
-    R: Send,
     R: 'env,
 {
     #[pin]
@@ -25,10 +24,7 @@ where
     scope: Arc<Scope<'scope, 'env, R>>,
 }
 
-impl<'scope, 'env, R, F> Body<'scope, 'env, R, F>
-where
-    R: Send,
-{
+impl<'scope, 'env, R, F> Body<'scope, 'env, R, F> {
     /// # Unsafe contract
     ///
     /// - `future` will be dropped BEFORE `scope`
@@ -49,10 +45,7 @@ where
 }
 
 #[pinned_drop]
-impl<'scope, 'env, R, F> PinnedDrop for Body<'scope, 'env, R, F>
-where
-    R: Send,
-{
+impl<'scope, 'env, R, F> PinnedDrop for Body<'scope, 'env, R, F> {
     fn drop(self: Pin<&mut Self>) {
         // Fulfill our unsafe contract and ensure we drop other fields
         // before we drop scope.
@@ -62,7 +55,6 @@ where
 
 impl<'scope, 'env, R, F> Future for Body<'scope, 'env, R, F>
 where
-    R: Send,
     F: Future<Output = R>,
 {
     type Output = R;

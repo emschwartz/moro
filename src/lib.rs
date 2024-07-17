@@ -148,7 +148,7 @@ pub use self::spawned::Spawned;
 /// Creates a new moro scope. Normally, you invoke this through `moro::async_scope!`.
 pub fn scope_fn<'env, R, B>(body: B) -> ScopeBody<'env, R, LocalBoxFuture<'env, R>>
 where
-    R: Send + 'env,
+    R: 'env,
     for<'scope> B: FnOnce(&'scope Scope<'scope, 'env, R>) -> LocalBoxFuture<'scope, R>,
 {
     let scope = Scope::new();

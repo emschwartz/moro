@@ -8,7 +8,6 @@ use crate::body::Body;
 #[pin_project]
 pub struct ScopeBody<'env, R: 'env, F>
 where
-    R: Send,
     F: Future<Output = R>,
 {
     #[pin]
@@ -17,7 +16,6 @@ where
 
 impl<'env, R, F> ScopeBody<'env, R, F>
 where
-    R: Send,
     F: Future<Output = R>,
 {
     pub(crate) fn new(body: Body<'env, 'env, R, F>) -> Self {
@@ -27,7 +25,6 @@ where
 
 impl<'env, R, F> Future for ScopeBody<'env, R, F>
 where
-    R: Send,
     F: Future<Output = R>,
 {
     type Output = R;
