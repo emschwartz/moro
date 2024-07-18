@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, pin::Pin, rc::Rc, sync::Mutex, task::Poll};
+use std::{cell::RefCell, marker::PhantomData, pin::Pin, rc::Rc, task::Poll};
 
 use futures::{future::LocalBoxFuture, stream::FuturesUnordered, Future, Stream};
 
@@ -12,9 +12,9 @@ pub struct Scope<'scope, 'env: 'scope, R: 'env> {
     /// A `RwLock` seems better, but `FuturesUnordered is not `Sync` in the case.
     /// But in fact it doesn't matter anyway, because all spawned futures execute
     /// CONCURRENTLY and hence there will be no contention.
-    futures: Mutex<Pin<Box<FuturesUnordered<LocalBoxFuture<'scope, ()>>>>>,
-    enqueued: Mutex<Vec<LocalBoxFuture<'scope, ()>>>,
-    terminated: Mutex<Option<R>>,
+    futures: RefCell<Pin<Box<FuturesUnordered<LocalBoxFuture<'scope, ()>>>>>,
+    enqueued: RefCell<Vec<LocalBoxFuture<'scope, ()>>>,
+    terminated: RefCell<Option<R>>,
     phantom: PhantomData<&'scope &'env ()>,
 }
 
@@ -22,7 +22,7 @@ impl<'scope, 'env, R> Scope<'scope, 'env, R> {
     /// Create a scope.
     pub(crate) fn new() -> Rc<Self> {
         Rc::new(Self {
-            futures: Mutex::new(Box::pin(FuturesUnordered::new())),
+            futures: RefCell::new(Box::pin(FuturesUnordered::new())),
             enqueued: Default::default(),
             terminated: Default::default(),
             phantom: Default::default(),
@@ -40,23 +40,22 @@ impl<'scope, 'env, R> Scope<'scope, 'env, R> {
     /// It is ok to invoke it again after `Ready(Ok(()))` has been returned;
     /// if any new jobs have been spawned, they will execute.
     pub(crate) fn poll_jobs(&self, cx: &mut std::task::Context<'_>) -> Poll<Option<R>> {
-        let mut futures = self.futures.lock().unwrap();
         'outer: loop {
             // once we are terminated, we do no more work.
-            if let Some(r) = self.terminated.lock().unwrap().take() {
+            if let Some(r) = self.terminated.take().take() {
                 return Poll::Ready(Some(r));
             }
 
-            futures.extend(self.enqueued.lock().unwrap().drain(..));
+            self.futures.borrow_mut().extend(self.enqueued.take());
 
-            while let Some(()) = ready!(futures.as_mut().poll_next(cx)) {
+            while let Some(()) = ready!(self.futures.borrow_mut().as_mut().poll_next(cx)) {
                 // once we are terminated, we do no more work.
-                if self.terminated.lock().unwrap().is_some() {
+                if self.terminated.borrow().is_some() {
                     continue 'outer;
                 }
             }
 
-            if self.enqueued.lock().unwrap().is_empty() {
+            if self.enqueued.borrow().is_empty() {
                 return Poll::Ready(None);
             }
         }
@@ -70,8 +69,8 @@ impl<'scope, 'env, R> Scope<'scope, 'env, R> {
     ///
     /// Once this returns, there are no more pending tasks.
     pub(crate) fn clear(&self) {
-        self.futures.lock().unwrap().clear();
-        self.enqueued.lock().unwrap().clear();
+        self.futures.borrow_mut().clear();
+        self.enqueued.borrow_mut().clear();
     }
 
     /// Terminate the scope immediately -- all existing jobs will stop at their next await point
@@ -105,11 +104,9 @@ impl<'scope, 'env, R> Scope<'scope, 'env, R> {
     where
         T: 'scope,
     {
-        let mut lock = self.terminated.lock().unwrap();
-        if lock.is_none() {
-            *lock = Some(value.into());
+        if self.terminated.borrow().is_none() {
+            self.terminated.replace(Some(value.into()));
         }
-        std::mem::drop(lock);
 
         // The code below will never run
         self.spawn(async { panic!() })
@@ -136,7 +133,7 @@ impl<'scope, 'env, R> Scope<'scope, 'env, R> {
 
         let (tx, rx) = async_channel::bounded(1);
 
-        self.enqueued.lock().unwrap().push(Box::pin(async move {
+        self.enqueued.borrow_mut().push(Box::pin(async move {
             let v = future.await;
             let _ = tx.send(v).await;
         }));
