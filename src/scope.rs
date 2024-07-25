@@ -13,7 +13,6 @@ pub struct Scope<'scope, 'env: 'scope, R: 'env> {
     /// But in fact it doesn't matter anyway, because all spawned futures execute
     /// CONCURRENTLY and hence there will be no contention.
     futures: RefCell<Pin<Box<FuturesUnordered<LocalBoxFuture<'scope, ()>>>>>,
-    enqueued: RefCell<Vec<LocalBoxFuture<'scope, ()>>>,
     terminated: RefCell<Option<R>>,
     phantom: PhantomData<&'scope &'env ()>,
 }
@@ -23,7 +22,6 @@ impl<'scope, 'env, R> Scope<'scope, 'env, R> {
     pub(crate) fn new() -> Rc<Self> {
         Rc::new(Self {
             futures: RefCell::new(Box::pin(FuturesUnordered::new())),
-            enqueued: Default::default(),
             terminated: Default::default(),
             phantom: Default::default(),
         })
@@ -46,8 +44,6 @@ impl<'scope, 'env, R> Scope<'scope, 'env, R> {
                 return Poll::Ready(Some(r));
             }
 
-            self.futures.borrow_mut().extend(self.enqueued.take());
-
             while let Some(()) = ready!(self.futures.borrow_mut().as_mut().poll_next(cx)) {
                 // once we are terminated, we do no more work.
                 if self.terminated.borrow().is_some() {
@@ -55,9 +51,7 @@ impl<'scope, 'env, R> Scope<'scope, 'env, R> {
                 }
             }
 
-            if self.enqueued.borrow().is_empty() {
-                return Poll::Ready(None);
-            }
+            return Poll::Ready(None);
         }
     }
 
@@ -70,7 +64,6 @@ impl<'scope, 'env, R> Scope<'scope, 'env, R> {
     /// Once this returns, there are no more pending tasks.
     pub(crate) fn clear(&self) {
         self.futures.borrow_mut().clear();
-        self.enqueued.borrow_mut().clear();
     }
 
     /// Terminate the scope immediately -- all existing jobs will stop at their next await point
@@ -133,7 +126,7 @@ impl<'scope, 'env, R> Scope<'scope, 'env, R> {
 
         let (tx, rx) = async_channel::bounded(1);
 
-        self.enqueued.borrow_mut().push(Box::pin(async move {
+        self.futures.borrow_mut().push(Box::pin(async move {
             let v = future.await;
             let _ = tx.send(v).await;
         }));
