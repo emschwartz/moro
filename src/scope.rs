@@ -1,6 +1,6 @@
 use std::{cell::RefCell, marker::PhantomData, pin::Pin, rc::Rc, task::Poll};
 
-use futures::{future::LocalBoxFuture, stream::FuturesUnordered, Future, Stream};
+use futures::{channel::oneshot, future::LocalBoxFuture, stream::FuturesUnordered, Future, Stream};
 
 use crate::Spawned;
 
@@ -124,15 +124,15 @@ impl<'scope, 'env, R> Scope<'scope, 'env, R> {
         // now is that caller will block which should (eventually) allow the
         // futures-unordered to be polled and make progress. Good enough.
 
-        let (tx, rx) = async_channel::bounded(1);
+        let (tx, rx) = oneshot::channel();
 
         self.futures.borrow_mut().push(Box::pin(async move {
             let v = future.await;
-            let _ = tx.send(v).await;
+            let _ = tx.send(v);
         }));
 
         Spawned::new(async move {
-            match rx.recv().await {
+            match rx.await {
                 Ok(v) => v,
                 Err(e) => panic!("unexpected error: {e:?}"),
             }
