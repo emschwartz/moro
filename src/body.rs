@@ -1,27 +1,36 @@
 use std::{pin::Pin, rc::Rc, task::Poll};
 
-use futures::Future;
-use pin_project::{pin_project, pinned_drop};
+use futures_core::Future;
+use pin_project_lite::pin_project;
 
 use crate::scope::Scope;
 
-/// The future for a scope's "body".
-///
-/// It is not considered complete until (a) the body is done and (b) any spawned futures are done.
-/// Its result is whatever the body returned.
-///
-/// # Unsafe contract
-///
-/// - `body_future` and `result` will be dropped BEFORE `scope`.
-#[pin_project(PinnedDrop)]
-pub(crate) struct Body<'scope, 'env: 'scope, R, F>
-where
-    R: 'env,
-{
-    #[pin]
-    body_future: Option<F>,
-    result: Option<R>,
-    scope: Rc<Scope<'scope, 'env, R>>,
+pin_project! {
+    /// The future for a scope's "body".
+    ///
+    /// It is not considered complete until (a) the body is done and (b) any spawned futures are done.
+    /// Its result is whatever the body returned.
+    ///
+    /// # Unsafe contract
+    ///
+    /// - `body_future` and `result` will be dropped BEFORE `scope`.
+    pub(crate) struct Body<'scope, 'env: 'scope, R, F>
+    where
+        R: 'env,
+    {
+        #[pin]
+        body_future: Option<F>,
+        result: Option<R>,
+        scope: Rc<Scope<'scope, 'env, R>>,
+    }
+
+    impl<R, F> PinnedDrop for Body<'_, '_, R, F> {
+        fn drop(this: Pin<&mut Self>) {
+            // Fulfill our unsafe contract and ensure we drop other fields
+            // before we drop scope.
+            this.clear();
+        }
+    }
 }
 
 impl<'scope, 'env, R, F> Body<'scope, 'env, R, F> {
@@ -41,15 +50,6 @@ impl<'scope, 'env, R, F> Body<'scope, 'env, R, F> {
         this.body_future.set(None);
         this.result.take();
         this.scope.clear();
-    }
-}
-
-#[pinned_drop]
-impl<'scope, 'env, R, F> PinnedDrop for Body<'scope, 'env, R, F> {
-    fn drop(self: Pin<&mut Self>) {
-        // Fulfill our unsafe contract and ensure we drop other fields
-        // before we drop scope.
-        self.clear();
     }
 }
 
@@ -80,7 +80,7 @@ where
         // so forward that result. Otherwise, the `result` from our body future
         // should be available, so return that.
         match ready!(this.scope.poll_jobs(cx)) {
-            Some(v) => return Poll::Ready(v),
+            Some(v) => Poll::Ready(v),
             None => match this.result.take() {
                 None => Poll::Pending,
                 Some(v) => Poll::Ready(v),

@@ -1,6 +1,8 @@
 use std::{cell::RefCell, marker::PhantomData, pin::Pin, rc::Rc, task::Poll};
 
-use futures::{channel::oneshot, future::LocalBoxFuture, stream::FuturesUnordered, Future, Stream};
+use futures_channel::oneshot;
+use futures_core::{future::LocalBoxFuture, Future, Stream};
+use futures_util::stream::FuturesUnordered;
 
 use crate::Spawned;
 
@@ -80,7 +82,7 @@ impl<'scope, 'env, R> Scope<'scope, 'env, R> {
     ///
     /// ```rust
     /// # futures::executor::block_on(async {
-    /// let result = moro::async_scope!(|scope| {
+    /// let result = moro_local::async_scope!(|scope| {
     ///     scope.spawn(async { /* ... */ });
     ///
     ///     // Calling `scope.terminate` here will terminate the async
@@ -98,7 +100,7 @@ impl<'scope, 'env, R> Scope<'scope, 'env, R> {
         T: 'scope,
     {
         if self.terminated.borrow().is_none() {
-            self.terminated.replace(Some(value.into()));
+            self.terminated.replace(Some(value));
         }
 
         // The code below will never run

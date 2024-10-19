@@ -1,17 +1,18 @@
 use std::pin::Pin;
 
-use futures::Future;
-use pin_project::pin_project;
+use futures_core::Future;
+use pin_project_lite::pin_project;
 
 use crate::body::Body;
 
-#[pin_project]
-pub struct ScopeBody<'env, R: 'env, F>
-where
-    F: Future<Output = R>,
-{
-    #[pin]
-    body: Body<'env, 'env, R, F>,
+pin_project! {
+    pub struct ScopeBody<'env, R: 'env, F>
+    where
+        F: Future<Output = R>,
+    {
+        #[pin]
+        body: Body<'env, 'env, R, F>,
+    }
 }
 
 impl<'env, R, F> ScopeBody<'env, R, F>

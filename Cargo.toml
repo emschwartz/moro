@@ -8,10 +8,13 @@ readme = "README.md"
 description = "Experimental structured concurrency support for async Rust (similar to trio's nurseries). Works with non-Send futures on stable Rust."
 
 [dependencies]
-futures = "0.3.21"
 async-trait = "0.1.56"
-pin-project = "1.1.5"
+futures-channel = { version = "0.3.21", default-features = false, features = ["alloc"] }
+futures-core = { version = "0.3.21", default-features = false, features = ["alloc"] }
+futures-util = { version = "0.3.21", default-features = false, features = ["alloc"] }
+pin-project-lite = "0.2.14"
 
 [dev-dependencies]
+futures = "0.3.21"
 anyhow = "1"
 tokio = { version = "1.17.0", features = ["full"] }

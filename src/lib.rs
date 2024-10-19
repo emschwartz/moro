@@ -38,7 +38,7 @@ mod spawned;
 ///
 /// ```rust
 /// # futures::executor::block_on(async {
-/// let scope = moro::async_scope!(|scope| {/* ... */}).await;
+/// let scope = moro_local::async_scope!(|scope| {/* ... */}).await;
 /// # });
 /// ```
 ///
@@ -50,7 +50,7 @@ mod spawned;
 /// ```rust
 /// # futures::executor::block_on(async {
 /// let r = 22;
-/// let scope = moro::async_scope!(|scope| {
+/// let scope = moro_local::async_scope!(|scope| {
 ///     // OK to refer to `r` here
 ///     scope.spawn(async { r }).await
 /// });
@@ -65,7 +65,7 @@ mod spawned;
 ///
 /// ```rust,compile_fail,E0373
 /// # futures::executor::block_on(async {
-/// let scope = moro::async_scope!(|scope| {
+/// let scope = moro_local::async_scope!(|scope| {
 ///     let r = 22;
 //
 ///     // NOT ok to refer to `r` now, because `r`
@@ -88,7 +88,7 @@ mod spawned;
 /// ```rust
 /// # futures::executor::block_on(async {
 /// let v = vec![1, 2, 3, 5];
-/// let scope = moro::async_scope!(|scope| {
+/// let scope = moro_local::async_scope!(|scope| {
 ///     let job = scope.spawn(async {
 ///         let r: i32 = v.iter().sum();
 ///         r
@@ -108,7 +108,7 @@ mod spawned;
 ///
 /// ```rust
 /// # futures::executor::block_on(async {
-/// let scope = moro::async_scope!(|scope| -> Result<(), u32> {
+/// let scope = moro_local::async_scope!(|scope| -> Result<(), u32> {
 ///     Err(22) // Ok type would otherwise be unconstrained
 /// });
 /// let result = scope.await;
@@ -139,7 +139,7 @@ macro_rules! async_scope {
     }};
 }
 
-use futures::future::LocalBoxFuture;
+use futures_core::future::LocalBoxFuture;
 
 pub use self::scope::Scope;
 pub use self::scope_body::ScopeBody;

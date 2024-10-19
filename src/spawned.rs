@@ -2,7 +2,7 @@ use std::pin::Pin;
 
 use crate::prelude::*;
 use crate::Scope;
-use futures::Future;
+use futures_core::Future;
 
 pub struct Spawned<F> {
     f: F,
